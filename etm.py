@@ -4,6 +4,8 @@ from datetime import datetime
 import pandas as pd
 import os.path
 from warnings import warn
+import numpy as np
+
 
 def area_codes(outputformat='list', filepath=None, refresh=False, save_csv=True):
     """
@@ -139,17 +141,16 @@ def get_all_inputs(outputformat='list', scenario_id=None):
         request_url = "https://engine.energytransitionmodel.com/api/v3/inputs"
     
     response = requests.get(request_url)
-    response_dict = json.loads(response.content)
 
     if outputformat=='list':
         inputs = list(json.loads(response.content).keys())
     elif outputformat=='dataframe':
-        inputs = pd.DataFrame(index=json.loads(response.content).keys())
+        inputs = pd.DataFrame.from_dict(json.loads(response.content))
     elif outputformat=='response':
         inputs = response
     elif outputformat=='csv':
         inputs = None
-        print("Not available through this function; use 'etm.generate_input_worksheet' instead.")
+        print("Not available through this function; use 'etm.generate_api_input_worksheet' instead.")
     
     if not response.status_code == 200:
         warn(f"Response not succesful: {response.status_code}")
@@ -165,12 +166,12 @@ def get_single_input(input_code):
 
     if not response.status_code == 200:
         raise ValueError(f"Response not succesful: {response.status_code}")
-        # here we raise error to prevent running generate_input_worksheet with silent errors
+        # here we raise error to prevent running generate_api_input_worksheet with silent errors
 
     return response_dict    
 
 
-def generate_input_worksheet(overwrite=False, filepath='etm_ref/api_raw_inputs.csv',scenario_id=None):
+def generate_api_input_worksheet(overwrite=False, filepath='etm_ref/api_raw_inputs.csv',scenario_id=None):
     
     if overwrite or not os.path.isfile(filepath):
 
@@ -191,3 +192,61 @@ def generate_input_worksheet(overwrite=False, filepath='etm_ref/api_raw_inputs.c
         df = pd.read_csv(filepath, index_col=0)    
     
     return df
+
+def construct_ids(serie_or_df):
+    """
+    Used to combine groups, subgroups and translated name to form an ID from a workbook.
+    Takes either a (sliced) df or a series (single row) to form the ID(s).
+    
+    Returns:
+        list of IDs if input is pd.DataFrame
+        single ID if input is pd.Series
+    """
+    if isinstance(serie_or_df, pd.DataFrame):
+        df = serie_or_df
+        ids = [f"{row.group} {row.subgroup} {row.translated_name}" for _, row in df.iterrows()]
+    
+    elif isinstance(serie_or_df, pd.Series):
+        row = serie_or_df
+        ids = f"{row.group} {row.subgroup} {row.translated_name}"
+    
+    return ids
+
+def generate_input_worksheet(scenario_id=None):
+    
+    inputs = pd.read_csv('etm_ref/clean_scraped_inputs.csv', index_col=0)
+    
+    # take only what we are interested in
+    df = inputs[['group', 'subgroup', 'translated_name', 'unit', 'key']].copy()
+    df.columns = ['Section', 'Subsection', 'Slider name', 'Unit', 'key']
+    df.loc[:,'Default value (template scenario)'] = pd.Series(dtype='float64')
+    df.loc[:, 'Slider description'] = inputs['sanitized_description']
+
+    # request the inputs based on scenario id (if none --> default)
+    values = get_all_inputs(outputformat="dataframe", scenario_id=scenario_id)
+    
+    for index, key in df.key.iteritems():
+        
+        df.loc[index,'Default value (template scenario)'] = values.loc['default', key]
+
+    
+
+
+    df.drop(columns='key', inplace=True)
+
+    df.to_excel('latest_generated_worksheet.xlsx', index=False, engine='openpyxl')
+    
+    return None
+
+
+
+def name2key(df):
+    
+    return lambda key: {construct_ids(row): row.key for _, row in df.iterrows()}.get(key)
+    
+def key2name(df):
+
+    return lambda name: {row.key: construct_ids(row) for _, row in df.iterrows()}.get(name)
+
+scenario_id=None
+generate_input_worksheet(scenario_id=scenario_id)

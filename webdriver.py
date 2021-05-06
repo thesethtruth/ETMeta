@@ -75,9 +75,26 @@ for link in links:
 
 # push all information to a frame and write out to csv
 df = pd.DataFrame(sliders_list)
-df.to_csv('etm_ref/scraped_inputs.csv')
 
-# store slider_list for future reference
+#%% remove some HTML formatting from translated name
+strip_subs = lambda x : str(x).replace('<sub>2</sub>','2')
+df.translated_name = df.translated_name.apply(strip_subs)
+
+# reformat dupes to unique description for easier API input integration
+from etm import _construct_ids
+dupes = pd.DataFrame(_construct_ids(df)).duplicated()
+df.translated_name.mask(dupes, df.translated_name.apply(lambda x: str(x) + " 2" ), inplace=True)
+
+# insert missing values in subgroup based on group
+nans = df.subgroup.isna()
+df.subgroup.mask(nans, df.group, inplace=True)
+
+# write to csv file
+df.to_csv('etm_ref/clean_scraped_inputs.csv')
+
+#%% store slider_list for future reference
 picklefile = open('etm_ref/raw_sliders_list.pkl', 'wb')
 pickle.dump(sliders_list, picklefile)
 picklefile.close()
+
+# %%
