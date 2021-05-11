@@ -73,7 +73,7 @@ for link in links:
 
     print('extracted!')
 
-# push all information to a frame and write out to csv
+# push all information to a frame
 df = pd.DataFrame(sliders_list)
 
 #%% remove some HTML formatting from translated name
