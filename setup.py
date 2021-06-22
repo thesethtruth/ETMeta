@@ -20,7 +20,7 @@ setup(
     # that you indicate whether you support Python 2, Python 3 or both.
     'Programming Language :: Python :: 3',
 ],
-    packages=find_packages("src", exclude=("ETMwebdriver",)),  # include all packages under src
+    packages=find_packages("src", exclude=("webdriver",)),  # include all packages under src
     package_dir={"": "src"},   # tell distutils packages are under src
     package_data={
         # And include any *.pkl files found in the "data" subdirectory

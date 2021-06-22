@@ -14,7 +14,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # import ETM connection
-from ETMapi import ETMapi
+from ETMeta import ETMapi
 
 metrics = [
     "dashboard_reduction_of_co2_emissions_versus_1990",

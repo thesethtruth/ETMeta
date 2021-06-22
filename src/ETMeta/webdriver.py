@@ -83,7 +83,7 @@ strip_subs = lambda x: str(x).replace("<sub>2</sub>", "2")
 df.translated_name = df.translated_name.apply(strip_subs)
 
 # reformat dupes to unique description for easier API input integration
-from ETMapi import _construct_ids
+from .core import _construct_ids
 
 dupes = pd.DataFrame(_construct_ids(df)).duplicated()
 df.translated_name.mask(

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 # import ETM API object from ETMapi.py
-from ETMapi import ETMapi
+from ETMeta import ETMapi
 
 #%% ETMapi object initialization
 

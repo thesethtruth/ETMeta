@@ -1,1 +1,1 @@
-from .ETMetacore import ETMapi, col_to_num, cleanhtml
+from .core import ETMapi, col_to_num, cleanhtml
