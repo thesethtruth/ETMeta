@@ -1,5 +1,5 @@
-# ETM-EMA-API
-
+# ETMeta
+### (pronounced: ET-meta)
 This project is currently in Alpha development. Precise content and included features are still open to debate. Consider this if you are interested in using this package. 
 
  * [Getting started](#getting-started)
@@ -7,6 +7,7 @@ This project is currently in Alpha development. Precise content and included fea
  * [EMA workbench](#ema-workbench)
  * [Tutorials and examples](#tutorials-and-examples)
 
+---
 ### Getting started
 
 This project is currently being released to work with `pip` for an easy install.
@@ -37,7 +38,7 @@ In the tutorials below a minimal example is given which varies the ratio of sola
 
 ### Tutorials and examples
 
-* [EMA solar-to-wind-ratio experiment on KEA scenario](#tutorials\example-ema-etm.py)
-    * [Example result](#images)
-* [Excel scenario downloads and uploads](#tutorials\tutorial-etm-sheets.py)
-    * [Example sheets](#sheets)
+* [EMA solar-to-wind-ratio experiment on KEA scenario](tutorials/example-ema-etm.py)
+    * [Example result](images)
+* [Excel scenario downloads and uploads](tutorials/tutorial-etm-sheets.py)
+    * [Example sheets](sheets)
