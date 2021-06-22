@@ -74,9 +74,7 @@ def ETMwrapper(
     }
     ETMi.user_values.update(constants)
 
-    p = ETMi.update_inputs()
-    if not p.status_code == 200:
-        raise ValueError(f"Response not succesful: {p.json()['errors']}")
+    ETMi.update_inputs()
     ETMi._update_metrics(output_format="dict")
 
     getter = lambda m: ETMi.metrics.get(m, 0)["future"]
