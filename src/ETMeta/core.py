@@ -129,39 +129,54 @@ class ETMapi:
     def create_new_scenarios_from_excel(
         self,
         file_name,
-        start_col,
-        end_col,
         start_row,
         end_row,
         ref_scenarios,
         end_years,
         sheet_name=None,
+        start_col=None,
+        end_col=None,
+        scenario_cols=None,
+        titles=None,
     ):
-
+        """
+        Documentation missing @seth
+        """
         # if needed convert ref_scenarios/end_years to the same length as amount of scenarios
-        nscenarios = col_to_num(end_col) - col_to_num(start_col)+1
+        if scenario_cols is not None:
+            nscenarios = len(scenario_cols)
+        elif end_col is not None and start_col is not None:
+            nscenarios = col_to_num(end_col) - col_to_num(start_col) + 1
+
         if not isinstance(end_years, list):
             end_years = list([end_years]) * nscenarios
         if not isinstance(ref_scenarios, list):
             ref_scenarios = list([ref_scenarios]) * nscenarios
+        if not isinstance(titles, list):
+            titles = list([titles]) * nscenarios
 
         all_user_values = self.extract_excel_etm_values(
             file_name=file_name,
-            start_col=start_col,
-            end_col=end_col,
             start_row=start_row,
             end_row=end_row,
             sheet_name=sheet_name,
+            start_col=start_col,
+            end_col=end_col,
+            scenario_cols=scenario_cols,
         )
 
         results = dict()
         for i, key in enumerate(all_user_values.keys()):
 
             self.user_values = all_user_values[key]
-            self.title = key
             self.end_year = end_years[i]
             self.scenario_id = ref_scenarios[i]
-            self.create_new_scenario(key, use_custom_values=True)
+            # order matters (scenario_id setter overwrites the self.title) @seth
+            if titles is not None:
+                self.title = titles[i]
+            else:
+                self.title = key
+            self.create_new_scenario(title=self.title, use_custom_values=True)
             results.update({key: {"metrics": self.metrics, "url": self.browse_url}})
 
         self.scenario_batch_result = results
@@ -169,27 +184,43 @@ class ETMapi:
     @staticmethod
     def extract_excel_etm_values(
         file_name,
-        start_col,
-        end_col,
         start_row,
         end_row,
         sheet_name=None,
+        start_col=None,
+        end_col=None,
+        scenario_cols=None,
     ):
+        """
+        Documentation missing @seth
+        """
         if sheet_name is None:
             sheet_name = "Sheet1"
 
         # read sheet
         df = pd.read_excel(file_name, sheet_name=sheet_name, engine="openpyxl")
 
-        # convert rows and cols to pandas indices
+        # find start and en row in pandas indices
         start_row = start_row - 2
         end_row = end_row - 1
-        start = col_to_num(start_col)
-        end = col_to_num(end_col) + 1
 
-        # get scenario data
-        scenarios = df.iloc[start_row:end_row, start:end]
+        if scenario_cols is not None:
+
+            # convert cols to pandas indices
+            scenario_nums = [col_to_num(col) for col in scenario_cols]
+            # get scenario data
+            scenarios = df.iloc[start_row:end_row, scenario_nums]
+
+        elif end_col is not None and start_col is not None:
+
+            # convert cols to pandas indices
+            start = col_to_num(start_col)
+            end = col_to_num(end_col) + 1
+            # get scenario data
+            scenarios = df.iloc[start_row:end_row, start:end]
+
         scenarios.columns = [cleanhtml(col) for col in scenarios.columns]
+
         # get translated names as column
         scenarios["trans_name"] = (
             df.iloc[start_row:end_row, 0]
@@ -198,7 +229,7 @@ class ETMapi:
         ).values
 
         # open the key map
-        with open("name_to_key.pkl", "rb") as handle:
+        with open("data/name_to_key.pkl", "rb") as handle:
             name_to_key = pickle.load(handle)
             keys = list(name_to_key.values())
 
@@ -266,9 +297,9 @@ class ETMapi:
 
             if use_custom_values:
                 p = self._change_inputs()
-                self._update_metrics()
                 if not p.status_code == 200:
                     raise ValueError(f"Response not succesful: {p.json()['errors']}")
+                self._update_metrics()
 
             if self.verbose:
                 print()
@@ -282,8 +313,8 @@ class ETMapi:
             return r
         else:
             pass
-    
-    def _update_metrics(self):
+
+    def _update_metrics(self, output_format="dataframe"):
         """
         Put querries and store results to ETM bases on self.gqueries
         """
@@ -296,11 +327,14 @@ class ETMapi:
             url + self.scenario_id, json=input_data, headers=self.headers
         )
         if p.status_code != 200:
-            warn(f'Gquerry not succesful for {self.scenario_id}')
-            print('p')
-        
+            warn(f"Gquerry not succesful for {self.scenario_id}")
+            print("p")
+
         # store metrics
-        self.metrics = pd.DataFrame.from_dict(p.json()["gqueries"], orient="index")
+        if output_format == "dataframe":
+            self.metrics = pd.DataFrame.from_dict(p.json()["gqueries"], orient="index")
+        if output_format == "dict":
+            self.metrics = p.json()["gqueries"]
 
         pass
 
@@ -348,7 +382,7 @@ class ETMapi:
         """
 
         if filepath is None:
-            filepath = "etm_ref/areacodes.csv"
+            filepath = "data/areacodes.pkl"
 
         if refresh or not os.path.isfile(filepath):
 
@@ -363,10 +397,10 @@ class ETMapi:
             df = pd.DataFrame(r_list)
 
             if save_csv:
-                df.to_csv(filepath)
+                df.to_pickle(filepath)
 
         else:
-            df = pd.read_csv(filepath, index_col=0)
+            df = pd.read_pickle(filepath)
             areas = set(df["area"])
 
         self.areas = areas
@@ -393,6 +427,18 @@ class ETMapi:
     def generate_input_worksheet(
         self, filepath=None, scenario_list=None, prettify=False
     ):
+        """
+        Method to generate an empty input worksheet. Can later be used to upload new scenarios
+        and very useful for documenting all changes and their sources.
+
+        Arguments:
+            filepath: filepath of output worksheet
+            scenario_list: list of scenario_ids to use as templates, included as column in sheet
+            prettify: removes keys (non-translated identification labels) and formats the worksheet
+
+        returns:
+            none, creates a file on specified location
+        """
 
         if scenario_list is None:
             scenario_list = [self.scenario_id]
@@ -403,7 +449,7 @@ class ETMapi:
                 filepath = f"latest_generated_worksheet_{self.scenario_id}.xlsx"
 
         # load in front-end variables based on scraped contents
-        ref = pd.read_csv("etm_ref/clean_scraped_inputs.csv", index_col=0)
+        ref = pd.read_pickle("data/inputs_reference.pkl")
 
         # take only what we are interested in
         df = ref[["key", "group", "subgroup", "translated_name", "unit"]].copy()
@@ -485,6 +531,7 @@ class ETMapi:
     def get_all_inputs(self, outputformat="list", scenario_id=None):
         """
         Fetch all possible inputs (this is more than available in the front-end)
+        @seth implement a work-around to always get the default scenario
         """
         if scenario_id is not None:
             url = f"/scenarios/{scenario_id}/inputs/"
@@ -499,11 +546,6 @@ class ETMapi:
             inputs = pd.DataFrame(r.json())
         elif outputformat == "response":
             inputs = r
-        elif outputformat == "csv":
-            inputs = None
-            print(
-                "Not available through this function; use 'etm.generate_api_input_worksheet' instead."
-            )
 
         if not r.status_code == 200:
             warn(f"Response not succesful: {r.status_code}")
@@ -511,6 +553,17 @@ class ETMapi:
         return inputs
 
     def id_extractor(self, scenario_id):
+        """
+        Basicly a lengthy way to get a session ID or the original uploading ID for extracting the default
+        values of any scenario. Without this workaround it is not possible to extract values of saved_templates,
+        as it is not (yet) implemented in the ETM. Uses bs4.
+
+        argument
+            scenario_id: 4 or 6 digit code of the scenario to extract
+
+        returns
+            _scenario_id for assingment to self
+        """
 
         # if 4 digit and not None (also len = 4) then extract id
         if len(str(scenario_id)) == 4 and scenario_id is not None:
