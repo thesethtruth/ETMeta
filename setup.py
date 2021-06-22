@@ -1,8 +1,8 @@
 from setuptools import setup, find_packages
 setup(
-    name='ETM-API-plus',
+    name='ETMeta',
     version='1.0.0',
-    description='A Python API connection to the ETM by QI, with as bonus integration to Excel and EMA.',
+    description='A meta Python API connection to the ETM by QI, with integration to Excel and EMA.',
     url='https://github.com/thesethtruth/ETM-EMA-API',
     author='Seth van Wieringen',
     author_email='seth@uu-engineering.nl',
@@ -24,8 +24,8 @@ setup(
     package_dir={"": "src"},   # tell distutils packages are under src
     package_data={
         # And include any *.pkl files found in the "data" subdirectory
-        # of the "ETM-EMA-API" package, also:
-        "ETM-EMA-API": ["data/*.pkl"],
+        # of the "ETMeta" package, also:
+        "ETMeta": ["data/*.pkl"],
     },
     install_requires=[
         'pandas',
