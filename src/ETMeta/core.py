@@ -333,7 +333,9 @@ class ETMapi:
         # store metrics
         if output_format == "dataframe":
             self.metrics = pd.DataFrame.from_dict(p.json()["gqueries"], orient="index")
-        if output_format == "dict":
+        elif output_format == "dict":
+            self.metrics = p.json()["gqueries"]
+        else:
             self.metrics = p.json()["gqueries"]
 
         pass
@@ -351,6 +353,9 @@ class ETMapi:
         p = self.session.put(
             url + self.scenario_id, json=input_data, headers=self.headers
         )
+        
+        if p.status_code != 200:
+            raise ValueError(f"Response not succesful: {p.json()['errors']}")
 
         return p
 
