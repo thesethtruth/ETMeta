@@ -1,5 +1,5 @@
 # ETMeta
-### (pronounced: ET-meta)
+### (pronounced: ETM-meta)
 This project is currently in Alpha development. Precise content and included features are still open to debate. Consider this if you are interested in using this package. 
 
  * [Getting started](#getting-started)
