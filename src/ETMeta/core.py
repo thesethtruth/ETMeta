@@ -299,7 +299,7 @@ class ETMapi:
                 p = self._change_inputs()
                 if not p.status_code == 200:
                     raise ValueError(f"Response not succesful: {p.json()['errors']}")
-                self._update_metrics()
+                self.update_metrics()
 
             if self.verbose:
                 print()
@@ -314,7 +314,7 @@ class ETMapi:
         else:
             pass
 
-    def _update_metrics(self, output_format="dataframe"):
+    def update_metrics(self, output_format="dataframe"):
         """
         Put querries and store results to ETM bases on self.gqueries
         """
@@ -324,7 +324,7 @@ class ETMapi:
 
         url = "/scenarios/"
         p = self.session.put(
-            url + self.scenario_id, json=input_data, headers=self.headers
+            url + str(self.scenario_id), json=input_data, headers=self.headers
         )
         if p.status_code != 200:
             warn(f"Gquerry not succesful for {self.scenario_id}")
