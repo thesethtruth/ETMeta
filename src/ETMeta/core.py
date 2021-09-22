@@ -327,16 +327,15 @@ class ETMapi:
             url + str(self.scenario_id), json=input_data, headers=self.headers
         )
         if p.status_code != 200:
-            warn(f"Gquerry not succesful for {self.scenario_id}")
-            print("p")
-
-        # store metrics
-        if output_format == "dataframe":
-            self.metrics = pd.DataFrame.from_dict(p.json()["gqueries"], orient="index")
-        elif output_format == "dict":
-            self.metrics = p.json()["gqueries"]
+            warn(f"Gquerry not succesful for {self.scenario_id}: {p.reason}")
         else:
-            self.metrics = p.json()["gqueries"]
+            # store metrics
+            if output_format == "dataframe":
+                self.metrics = pd.DataFrame.from_dict(p.json()["gqueries"], orient="index")
+            elif output_format == "dict":
+                self.metrics = p.json()["gqueries"]
+            else:
+                self.metrics = p.json()["gqueries"]
 
         pass
 
