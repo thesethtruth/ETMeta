@@ -1,5 +1,5 @@
 # ETMeta
-### (pronounced: ET-meta)
+### (pronounced: ETM-meta)
 This project is currently in Alpha development. Precise content and included features are still open to debate. Consider this if you are interested in using this package. 
 
  * [Getting started](#getting-started)
@@ -11,9 +11,9 @@ This project is currently in Alpha development. Precise content and included fea
 ### Getting started
 
 This project is currently being released to work with `pip` for an easy install.
-To install ETM-EMA-API use the following command (in your `venv` of choice).
+To install ETMeta use the following command (in your `venv` of choice).
 
-`pip install https://github.com/thesethtruth/ETM-EMA-API/archive/main.zip`
+`pip install https://github.com/thesethtruth/ETMeta/archive/main.zip`
 
 Dependencies are specified in the setup.py without versioning to retain flexibility for users. Please make sure that you have latest versions of the modules listed below.
 

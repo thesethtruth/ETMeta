@@ -10,6 +10,7 @@ import seaborn as sns
 import re
 import pickle
 import numpy as np
+from pathlib import Path
 
 
 class SessionWithUrlBase(requests.Session):
@@ -229,7 +230,8 @@ class ETMapi:
         ).values
 
         # open the key map
-        with open("data/name_to_key.pkl", "rb") as handle:
+        filepath = Path(__file__) / "data" / "name_to_key.pkl"
+        with open(filepath, "rb") as handle:
             name_to_key = pickle.load(handle)
             keys = list(name_to_key.values())
 
@@ -299,7 +301,7 @@ class ETMapi:
                 p = self._change_inputs()
                 if not p.status_code == 200:
                     raise ValueError(f"Response not succesful: {p.json()['errors']}")
-                self._update_metrics()
+                self.update_metrics()
 
             if self.verbose:
                 print()
@@ -314,7 +316,7 @@ class ETMapi:
         else:
             pass
 
-    def _update_metrics(self, output_format="dataframe"):
+    def update_metrics(self, output_format="dataframe"):
         """
         Put querries and store results to ETM bases on self.gqueries
         """
@@ -324,19 +326,18 @@ class ETMapi:
 
         url = "/scenarios/"
         p = self.session.put(
-            url + self.scenario_id, json=input_data, headers=self.headers
+            url + str(self.scenario_id), json=input_data, headers=self.headers
         )
         if p.status_code != 200:
-            warn(f"Gquerry not succesful for {self.scenario_id}")
-            print("p")
-
-        # store metrics
-        if output_format == "dataframe":
-            self.metrics = pd.DataFrame.from_dict(p.json()["gqueries"], orient="index")
-        elif output_format == "dict":
-            self.metrics = p.json()["gqueries"]
+            warn(f"Gquerry not succesful for {self.scenario_id}: {p.reason}")
         else:
-            self.metrics = p.json()["gqueries"]
+            # store metrics
+            if output_format == "dataframe":
+                self.metrics = pd.DataFrame.from_dict(p.json()["gqueries"], orient="index")
+            elif output_format == "dict":
+                self.metrics = p.json()["gqueries"]
+            else:
+                self.metrics = p.json()["gqueries"]
 
         pass
 
@@ -351,13 +352,38 @@ class ETMapi:
 
         url = "/scenarios/"
         p = self.session.put(
-            url + self.scenario_id, json=input_data, headers=self.headers
+            url + str(self.scenario_id), json=input_data, headers=self.headers
         )
         
         if p.status_code != 200:
             raise ValueError(f"Response not succesful: {p.json()['errors']}")
 
         return p
+    
+    def get_user_values(self):
+        """
+        Get the user values from the current scenario.
+        """
+        push_to_get_data = {
+            "detailed": True,
+        }
+
+        url = "/scenarios/"
+        p = self.session.put(
+            url + str(self.scenario_id), json=push_to_get_data, headers=self.headers
+        )
+        
+        if p.status_code != 200:
+            warn(f"Gquerry not succesful for {self.scenario_id}: {p.reason}")
+        else:
+            warn(f"User values were extracted from the existing scenario. This might have overwritten supplied user values.")
+
+        for key in self.user_values.keys():
+            self.user_values.update({
+                key : p.json()['scenario']['user_values'].get(key, None)
+            })
+
+        pass
 
     def update_inputs(self, debug=False):
         """Basicly ._change_inputs but does not return p out of debug"""
@@ -387,7 +413,7 @@ class ETMapi:
         """
 
         if filepath is None:
-            filepath = "data/areacodes.pkl"
+            filepath = Path(__file__) / "data" / "areacodes.pkl"
 
         if refresh or not os.path.isfile(filepath):
 
@@ -454,7 +480,8 @@ class ETMapi:
                 filepath = f"latest_generated_worksheet_{self.scenario_id}.xlsx"
 
         # load in front-end variables based on scraped contents
-        ref = pd.read_pickle("data/inputs_reference.pkl")
+        filepath = Path(__file__) / "data" / "inputs_reference.pkl"
+        ref = pd.read_pickle(filepath)
 
         # take only what we are interested in
         df = ref[["key", "group", "subgroup", "translated_name", "unit"]].copy()
