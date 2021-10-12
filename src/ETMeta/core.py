@@ -230,7 +230,7 @@ class ETMapi:
         ).values
 
         # open the key map
-        filepath = Path(__file__) / "data" / "name_to_key.pkl"
+        filepath = Path(__file__).parent / "data" / "name_to_key.pkl"
         with open(filepath, "rb") as handle:
             name_to_key = pickle.load(handle)
             keys = list(name_to_key.values())
@@ -413,7 +413,7 @@ class ETMapi:
         """
 
         if filepath is None:
-            filepath = Path(__file__) / "data" / "areacodes.pkl"
+            filepath = Path(__file__).parent / "data" / "areacodes.pkl"
 
         if refresh or not os.path.isfile(filepath):
 
@@ -480,7 +480,7 @@ class ETMapi:
                 filepath = f"latest_generated_worksheet_{self.scenario_id}.xlsx"
 
         # load in front-end variables based on scraped contents
-        filepath = Path(__file__) / "data" / "inputs_reference.pkl"
+        filepath = Path(__file__).parent / "data" / "inputs_reference.pkl"
         ref = pd.read_pickle(filepath)
 
         # take only what we are interested in
