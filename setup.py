@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 setup(
     name='ETMeta',
-    version='1.0.3',
+    version='1.0.4',
     description='A meta Python API connection to the ETM by QI, with integration to Excel and EMA.',
     url='https://github.com/thesethtruth/ETM-EMA-API',
     author='Seth van Wieringen',
