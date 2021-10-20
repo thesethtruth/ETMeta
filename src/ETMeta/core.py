@@ -104,7 +104,7 @@ class ETMapi:
             "hv_net_capacity_delta_present_future",
         ]
 
-        self.scenario_id = scenario_id
+        self.scenario_id = scenario_id # RIEMER WAS HERE
 
     @property
     def scenario_id(self):
