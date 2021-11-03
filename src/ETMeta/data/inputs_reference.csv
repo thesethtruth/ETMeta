@@ -1,4 +1,4 @@
-index,unit,share_group,key,related_node,node_source_url,step_value,draw_to_min,draw_to_max,disabled,translated_name,sanitized_description,fixed,has_flash_movie,additional_specs,group,subgroup
+,unit,share_group,key,related_node,node_source_url,step_value,draw_to_min,draw_to_max,disabled,translated_name,sanitized_description,fixed,has_flash_movie,additional_specs,group,subgroup
 0,mln,,households_number_of_inhabitants,,,0.1,,,False,Population,"How do you expect the population to grow? Apart from increasing prosperity, this is one of the most important drivers for the energy demand growth.",False,False,{},Households,Population & housing stock
 1,#,,households_number_of_residences,,,1.0,,,False,Residences,How do you expect the number of residences to develop over time?,False,False,{},Households,Population & housing stock
 2,%,housing_stock,households_apartments_share,,,0.1,,,False,Apartment,How many apartments will there be in the future?,False,False,{},Households,Population & housing stock

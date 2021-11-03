@@ -1,3 +1,4 @@
+#%%
 import requests
 import json
 import pandas as pd
@@ -11,8 +12,9 @@ import re
 import pickle
 import numpy as np
 from pathlib import Path
+from .webdriver import update_etm_inputs
 
-
+#%%
 class SessionWithUrlBase(requests.Session):
     """
     from https://github.com/quintel/third-party/blob/master/Python_ETM_API/ETM_API.py
@@ -103,8 +105,21 @@ class ETMapi:
             "mv_net_capacity_delta_present_future",
             "hv_net_capacity_delta_present_future",
         ]
+# Trying to input the flexiblity order @Seth
+        # self.flexibility_order.order = [
+        #         "mv_batteries",
+        #         "electric_vehicle",
+        #         "pumped_storage",
+        #         "household_batteries",
+        #         "power_to_heat_district_heating_boiler",
+        #         "power_to_heat_district_heating_heatpump",
+        #         "opac",
+        #         "power_to_gas",
+        #         "power_to_heat_industry",
+        #         "export"
+        # ]
 
-        self.scenario_id = scenario_id # RIEMER WAS HERE
+        self.scenario_id = scenario_id
 
     @property
     def scenario_id(self):
@@ -126,6 +141,9 @@ class ETMapi:
             title = ""
 
         return title
+
+    def update_etm_inputs(self):
+        return update_etm_inputs()
 
     def create_new_scenarios_from_excel(
         self,
@@ -210,7 +228,7 @@ class ETMapi:
             # convert cols to pandas indices
             scenario_nums = [col_to_num(col) for col in scenario_cols]
             # get scenario data
-            scenarios = df.iloc[start_row:end_row, scenario_nums]
+            scenarios = df.iloc[start_row:end_row, scenario_nums].copy()
 
         elif end_col is not None and start_col is not None:
 
@@ -218,33 +236,40 @@ class ETMapi:
             start = col_to_num(start_col)
             end = col_to_num(end_col) + 1
             # get scenario data
-            scenarios = df.iloc[start_row:end_row, start:end]
+            scenarios = df.iloc[start_row:end_row, start:end].copy()
 
         scenarios.columns = [cleanhtml(col) for col in scenarios.columns]
 
         # get translated names as column
         scenarios["trans_name"] = (
-            df.iloc[start_row:end_row, 0]
-            + df.iloc[start_row:end_row, 1]
-            + df.iloc[start_row:end_row, 2].fillna("")
+            df.loc[f'{start_row}':f'{end_row}', 'Section'].copy().fillna("")
+            + df.loc[f'{start_row}':f'{end_row}', 'Subsection'].copy().fillna("")
+            + df.loc[f'{start_row}':f'{end_row}', 'Slider name'].copy().fillna("")
         ).values
-
+        '''
+        Changed this to .loc to prevent skipping the last row and to always take the right
+        columns from the xlsx-file even when columns are added to the file. @Seth
+        '''
+                
         # open the key map
-        filepath = Path(__file__).parent / "data" / "name_to_key.pkl"
-        with open(filepath, "rb") as handle:
-            name_to_key = pickle.load(handle)
-            keys = list(name_to_key.values())
+        filepath = Path(__file__).parent / "data" / "etm_inputs.pkl"
+        df = pd.read_pickle(filepath)
+        keys = df["trans_name"].values
+        values = df['key'].values
+        name_to_key = {}
+        for key, value in zip (keys,values):
+            name_to_key.update({key:value})
 
         # name-to-key function
         def n2k(index):
             # get trans_name
             name = scenarios.trans_name[index]
-            key = name_to_key.get(name, None)
-            # if no exact match, revert to index based (could be wrong tho)
-            if key is None:
+            try:
+                key = name_to_key[name]
+            except KeyError:
                 key = keys[index]
                 warn(
-                    f"No key match, reverting to index based assumption on row {index}, found key {key}."
+                    f"No key match found for {name}, reverting to index based assumption on row {index}, yields key: {key}."
                 )
             return key
 
@@ -255,7 +280,7 @@ class ETMapi:
                 user_values = {
                     n2k(index): row
                     for index, row in scenario.iteritems()
-                    if not np.isnan(row)
+                    if not pd.isna(row)
                 }
                 all_user_values.update({col: user_values})
 
@@ -295,7 +320,7 @@ class ETMapi:
 
             api_url = json.loads(r.content)["url"]
             self.scenario_id = api_url.split("/")[-1]
-            self.browse_url += self.scenario_id
+            scen_url = self.browse_url + self.scenario_id
 
             if use_custom_values:
                 p = self._change_inputs()
@@ -306,7 +331,7 @@ class ETMapi:
             if self.verbose:
                 print()
                 print("Browsable URL to scenario:")
-                print(self.browse_url)
+                print(scen_url)
 
         if not r.status_code == 200:
             raise ValueError(f"Response not succesful: {r.status_code}")
@@ -480,12 +505,12 @@ class ETMapi:
                 filepath = f"latest_generated_worksheet_{self.scenario_id}.xlsx"
 
         # load in front-end variables based on scraped contents
-        filepath = Path(__file__).parent / "data" / "inputs_reference.pkl"
-        ref = pd.read_pickle(filepath)
+        filepath_inputs = Path(__file__).parent / "data" / "etm_inputs.pkl"  #inputs_reference.pkl was outdated, tried raw_sliders_list.pkl @Seth
+        ref = pd.read_pickle(filepath_inputs)
 
         # take only what we are interested in
-        df = ref[["key", "group", "subgroup", "translated_name", "unit"]].copy()
-        df.columns = ["key", "Section", "Subsection", "Slider name", "Unit"]
+        df = ref[["key", "group", "subgroup", "translated_name", "unit", "trans_name"]].copy()
+        df.columns = ["key", "Section", "Subsection", "Slider name", "Unit", "Trans_name"]
 
         for sid in scenario_list:
 
@@ -560,7 +585,7 @@ class ETMapi:
 
         pass
 
-    def get_all_inputs(self, outputformat="list", scenario_id=None):
+    def get_all_inputs(self, outputformat="list", scenario_id=None): #What is this compared to the webdriver? @Seth
         """
         Fetch all possible inputs (this is more than available in the front-end)
         @seth implement a work-around to always get the default scenario
@@ -597,8 +622,8 @@ class ETMapi:
             _scenario_id for assingment to self
         """
 
-        # if 4 digit and not None (also len = 4) then extract id
-        if len(str(scenario_id)) == 4 and scenario_id is not None:
+        # based on the digit we determine whether it is a session or a saved scenario
+        if len(str(scenario_id)) < 6 and scenario_id is not None:
 
             url = f"https://pro.energytransitionmodel.com/saved_scenarios/{scenario_id}/load"
             r = requests.get(url)
@@ -634,41 +659,3 @@ class ETMapi:
 
         return _scenario_id
 
-
-# Used by webdriver
-def construct_ids(serie_or_df):
-    """
-    Used to combine groups, subgroups and translated name to form an ID from a workbook.
-    Takes either a (sliced) df or a series (single row) to form the ID(s).
-
-    Returns:
-        list of IDs if input is pd.DataFrame
-        single ID if input is pd.Series
-    """
-    if isinstance(serie_or_df, pd.DataFrame):
-        df = serie_or_df
-        ids = [
-            f"{row.group} {row.subgroup} {row.translated_name}"
-            for _, row in df.iterrows()
-        ]
-
-    elif isinstance(serie_or_df, pd.Series):
-        row = serie_or_df
-        ids = f"{row.group} {row.subgroup} {row.translated_name}"
-
-    return ids
-
-
-# Not used atm
-def name2key(df):
-
-    return lambda key: {construct_ids(row): row.key for _, row in df.iterrows()}.get(
-        key
-    )
-
-
-def key2name(df):
-
-    return lambda name: {row.key: construct_ids(row) for _, row in df.iterrows()}.get(
-        name
-    )
