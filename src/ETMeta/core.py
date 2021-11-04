@@ -12,7 +12,8 @@ import re
 import pickle
 import numpy as np
 from pathlib import Path
-from .webdriver import update_etm_inputs
+from .webdriver import update_etm_inputs #unmute when necessary
+# from .webdriver import _construct_ids #Is this necessary to import?
 
 #%%
 class SessionWithUrlBase(requests.Session):
@@ -105,7 +106,7 @@ class ETMapi:
             "mv_net_capacity_delta_present_future",
             "hv_net_capacity_delta_present_future",
         ]
-# Trying to input the flexiblity order @Seth
+        # Trying to input the flexiblity order @Seth
         # self.flexibility_order.order = [
         #         "mv_batteries",
         #         "electric_vehicle",
@@ -138,7 +139,7 @@ class ETMapi:
             di = json.loads(r.content)
             title = di["title"]
         else:
-            title = ""
+            title = self.area_code # @Riemer: Empty title is a bit sad, so make it the area
 
         return title
 
@@ -150,8 +151,8 @@ class ETMapi:
         file_name,
         start_row,
         end_row,
-        ref_scenarios,
-        end_years,
+        end_years,                  # @Riemer: Switch positions with ref_scenarios
+        ref_scenarios=None,         # @Riemer: ref_scenario can be None to create a clean scenario
         sheet_name=None,
         start_col=None,
         end_col=None,
@@ -189,14 +190,17 @@ class ETMapi:
 
             self.user_values = all_user_values[key]
             self.end_year = end_years[i]
-            self.scenario_id = ref_scenarios[i]
+            scenario_id = ref_scenarios[i]
+            # @Riemer: The scenario_id should not become the scenario_id of the self (being the ETM instance)..
+            # It should be a floating scenario_id only usable for running (and creating) new scenarios
             # order matters (scenario_id setter overwrites the self.title) @seth
             if titles is not None:
                 self.title = titles[i]
             else:
                 self.title = key
-            self.create_new_scenario(title=self.title, use_custom_values=True)
-            results.update({key: {"metrics": self.metrics, "url": self.browse_url}})
+            # @Riemer: This are the follow through changes from the changes made in create_new_scenario
+            self.create_new_scenario(title=self.title, scenario_id=scenario_id, use_custom_values=True)
+            results.update({key: {"metrics": self.metrics, "url": self.scen_url}})
 
         self.scenario_batch_result = results
 
@@ -286,18 +290,20 @@ class ETMapi:
 
         return all_user_values
 
-    def create_new_scenario(self, title, use_custom_values=False):
+    def create_new_scenario(self, title, scenario_id= None, use_custom_values=False):
+        # @Riemer: I have added the scenario_id to the input variables to make it possible..
+        # .. to not supply the scenario_id and thereby create a NEW scenario!
         """
         POST-method to create a scenario in ETM using ETM v3 API. Converts non-strings to strings.
-        Pushes the setup as json in correct format voor ETM v3 API.
+        Pushes the setup as json in correct format for ETM v3 API.
 
         arguments:
             area_code (optional, one of the existing area codes (use etm.area_codes() to obtain))
             title (title of scenario)
             end_year (interger end year)
             source (paper trail, recommended to use)
-            scenario_id (refference scenario)
-            verbose (false turns off all print and warn)
+            scenario_id (reference scenario)
+            verbose (False --> turns off all print and warn)
 
         returns:
             requests response object
@@ -309,7 +315,8 @@ class ETMapi:
                 "title": str(title),
                 "end_year": str(self.end_year),
                 "source": str(self.source),
-                "scenario_id": str(self.scenario_id),
+                "scenario_id": str(scenario_id), 
+                # @Riemer: This caused the end_year of the ref_scenario to prevail in the scen's
             }
         }
 
@@ -320,7 +327,8 @@ class ETMapi:
 
             api_url = json.loads(r.content)["url"]
             self.scenario_id = api_url.split("/")[-1]
-            scen_url = self.browse_url + self.scenario_id
+            self.scen_url = self.browse_url + self.scenario_id
+            # @Riemer: add the scen_url to the ETMapi instance to use it in the other def's
 
             if use_custom_values:
                 p = self._change_inputs()
@@ -331,7 +339,7 @@ class ETMapi:
             if self.verbose:
                 print()
                 print("Browsable URL to scenario:")
-                print(scen_url)
+                print(self.scen_url)
 
         if not r.status_code == 200:
             raise ValueError(f"Response not succesful: {r.status_code}")
@@ -343,7 +351,7 @@ class ETMapi:
 
     def update_metrics(self, output_format="dataframe"):
         """
-        Put querries and store results to ETM bases on self.gqueries
+        Put queries and store results to ETM bases on self.gqueries
         """
         input_data = {
             "gqueries": self.gqueries,
@@ -462,7 +470,7 @@ class ETMapi:
         self.areas = areas
         return areas
 
-    def get_area_settings(area_code):
+    def get_area_settings(self, area_code= None):
         """
         Gets the area settings based on the area code.
 
@@ -472,12 +480,18 @@ class ETMapi:
         returns:
             requests response object
         """
+        if area_code is None:
+            area_code = self.area_code
+        
+        # @Riemer
+        # deactivated the request_url as it did not work from the ETMapi() created...
 
-        request_url = (
-            f"https://engine.energytransitionmodel.com/api/v3/areas/{area_code}"
-        )
-        response = requests.get(request_url)
+        # request_url = (f"https://engine.energytransitionmodel.com/api/v3/areas/{area_code}")
+        url = f"/areas/{area_code}"
 
+        # response = requests.get(request_url)
+        r = self.session.get(url)
+        response = json.loads(r.content)
         return response
 
     def generate_input_worksheet(
@@ -498,11 +512,15 @@ class ETMapi:
 
         if scenario_list is None:
             scenario_list = [self.scenario_id]
+            print(f"No specified scenarios were given. The following scenario(s) are loaded in to the worksheet are: {scenario_list}")
 
         if filepath is None:
             filepath = "latest_generated_worksheet.xlsx"
             if self.scenario_id is not None:
                 filepath = f"latest_generated_worksheet_{self.scenario_id}.xlsx"
+            print(f"No file name was given. The worksheet is created under the following name: {filepath}") # added print @Riemer
+        else:
+            print(f"The worksheet is created under the following name: {filepath}") #added print @Riemer
 
         # load in front-end variables based on scraped contents
         filepath_inputs = Path(__file__).parent / "data" / "etm_inputs.pkl"  #inputs_reference.pkl was outdated, tried raw_sliders_list.pkl @Seth
@@ -513,12 +531,13 @@ class ETMapi:
         df.columns = ["key", "Section", "Subsection", "Slider name", "Unit", "Trans_name"]
 
         for sid in scenario_list:
-
+            print(f"This scenario is now running: {sid}") #added print @Riemer
             self.scenario_id = sid  # use setter
             if self.scenario_id is not None:
                 col_name = self.title + f" ({self.scenario_id})"
             else:
                 col_name = "Default scenario"
+            print(f"which can be found under the following title: {col_name}") #added print @Riemer
 
             df.loc[:, col_name] = pd.Series(dtype="float64")
             # request the inputs based on scenario id (if none --> default)
